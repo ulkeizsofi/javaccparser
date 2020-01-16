@@ -1,0 +1,241 @@
+options
+{
+  LOOKAHEAD=2;
+  CHOICE_AMBIGUITY_CHECK = true;
+}
+PARSER_BEGIN(JavaParser)
+import java.io.*;
+
+public class JavaParser {
+      
+    public static void main(String[] args) throws Exception {
+      //StringReader in=new StringReader();
+      if (args.length < 1){
+        System.err.println("Not enough argument");
+        System.exit(1);
+      }
+      JavaParser javaParser=new JavaParser(new FileInputStream(new File(args[0])));
+      javaParser.Start();
+    }
+}
+
+PARSER_END(JavaParser)
+
+SKIP: { " " | "\t" |"\n" |"\r"}
+
+//STATIC TOKENS
+TOKEN : {
+ <INTEGER_CONSTANT: (<DIGIT>)+>
+ |  < FLOATING_POINT_LITERAL:
+        (<DIGIT>)+ "." (<DIGIT>)*(["f","F","d","D"])?
+      | "." (<DIGIT>)+ (["f","F","d","D"])?
+      | (<DIGIT>)+  (["f","F","d","D"])?
+      | (<DIGIT>)+ ["f","F","d","D"]
+  >
+|  < #EXPONENT: ["e","E"] (["+","-"])? (<DIGIT>)+ >
+|  <LOGIC_CONSTANT: "true" | "false" | "-1">
+|  <STRING_CONSTANT: "\"" ( ~["\"","\\","\n","\r"] | "\\" ( ["n","t","b","r","f","\\","\'","\""] | ( ["\n","\r"] | "\r\n")))* "\"">
+|  <#DIGIT: ["0"-"9"]>
+}
+//RESERVED WORDS
+TOKEN : {
+ <NOT: "not">
+|  <IF: "if">
+|  <END: "end">
+|  <SUB: "sub">
+|  <LET: "let">
+|  <CALL: "call">
+|  <THEN: "then">
+|  <CASE: "case">
+|  <ELSE: "else">
+|  <INPUT: "input">
+|  <SELECT: "select">
+|  <STATIC: "static">
+| <CLASS: "class">
+| <PUBLIC: "public">
+| <VOID: "void">
+| <MAIN: "main">
+| <EXTENDS: "extends">
+| <PRINT: "System.out.println">
+| <WHILE: "while">
+| <NEW : "new">
+| <THIS: "this">
+| <RETURN: "return">
+}
+
+//TYPE
+TOKEN: {
+  <TYPE : ("int" | "boolean")(<OPEN_BRACKET> <CLOSE_BRACKET>)?>
+}
+
+TOKEN : {
+ <STRING: "String">
+}
+
+//IDENTIFIER TOKEN
+TOKEN : {
+ <IDENTIFIER: <LETTER>(<LETTER>|<DIGIT>)*(["$"])?>
+|  <#LETTER: (["a"-"z","A"-"Z"])>
+}
+
+
+TOKEN: { <PLUS: "+">  }
+TOKEN: { <MINUS: "-">  }
+TOKEN: { <TIMES: "*">  }
+TOKEN: { <DIVIDE: "/">  }
+TOKEN: { <EQUALS: "=">  }
+TOKEN : { < OPEN_PAR : "(" > }
+TOKEN : { < CLOSE_PAR : ")" > }
+TOKEN : { < OPEN_BRACE : "{" > }
+TOKEN : { < CLOSE_BRACE : "}" > }
+TOKEN : { < OPEN_BRACKET : "[" > }
+TOKEN : { < CLOSE_BRACKET : "]" > }
+TOKEN : { < SEMI_COLON : ";" > }
+TOKEN : { < COMMA : "," > }
+TOKEN : {<OPERATOR : <PLUS> | <MINUS> | <TIMES> | <DIVIDE>>}
+
+void Start():
+{}
+{
+Program()
+}
+
+void Program():
+{}
+{
+  MainClass() 
+  (ClassDecl())*
+  <EOF>
+}
+
+void MainClass():
+{
+  Token t;  
+}
+{
+  <CLASS>  t = <IDENTIFIER> 
+  {System.out.println( "main " + t.image);}
+  <OPEN_BRACE>
+
+  <PUBLIC> <STATIC> <VOID> <MAIN> <OPEN_PAR> 
+  [<STRING> <OPEN_BRACKET> <CLOSE_BRACKET> <IDENTIFIER>] 
+  <CLOSE_PAR> 
+  <OPEN_BRACE>
+    Statement()
+  <CLOSE_BRACE>
+  <CLOSE_BRACE>
+}
+
+void ClassDecl():
+{
+  Token t;
+}
+{
+  <CLASS> t = <IDENTIFIER>{System.out.println("class " + t.image); }
+  [<EXTENDS> <IDENTIFIER>]
+  <OPEN_BRACE>
+    (VarDecl())*
+    (MethodDecl())*
+  <CLOSE_BRACE>
+}
+
+void VarDecl():
+{
+  Token t;
+}
+{
+  {System.out.println("here");}
+  t = <TYPE> {System.out.println("type " + t.image);} <IDENTIFIER> <SEMI_COLON>
+}
+
+
+void FormalList():
+{
+  Token t;
+}
+{
+  <TYPE> t = <IDENTIFIER>{System.out.println("type " + t.image);} 
+  (<COMMA> <TYPE> t = <IDENTIFIER>{System.out.println("type " + t.image);})*
+}
+
+void MethodDecl():
+{
+  Token t;
+}
+{
+  {System.out.println("method");}
+  <PUBLIC> <TYPE> t = <IDENTIFIER>{System.out.println("method " + t.image);}
+  <OPEN_PAR> (FormalList())* <CLOSE_PAR>
+  <OPEN_BRACE> (Statement())* <RETURN> <IDENTIFIER> t =<SEMI_COLON> {System.out.println("return " + t.image);} <CLOSE_BRACE>
+}
+
+void Statement():
+{
+}
+{
+  <IDENTIFIER> (<OPEN_BRACKET> Expression() <CLOSE_BRACKET>)? <EQUALS> Expression() <SEMI_COLON>
+  | <PRINT> <OPEN_PAR> Expression() <CLOSE_PAR> <SEMI_COLON> 
+  | IfStatement()
+  | WhileStatement()
+  | StatementBr()
+  | VarDecl()
+}
+
+void StatementBr():
+{}
+{
+  <OPEN_BRACE> (Statement())* <CLOSE_BRACE>
+}
+
+void IfStatement():
+{}
+{
+  <IF> <OPEN_PAR> Expression() <CLOSE_PAR> [<ELSE> Statement()]
+}
+
+void WhileStatement():
+{}
+{
+  <WHILE> <OPEN_PAR> Expression() <CLOSE_PAR> Statement()
+}
+
+void Expression() throws NumberFormatException:
+{
+}
+{
+  <OPEN_PAR> Expression() <CLOSE_PAR>
+  | "!" Expression()
+  | <LOGIC_CONSTANT>
+  | <IDENTIFIER>
+  | <THIS>
+  | <NEW> (<TYPE> <OPEN_BRACKET> Expression() <CLOSE_BRACKET> | <IDENTIFIER> <OPEN_PAR> <CLOSE_PAR>)
+}
+
+void Primary() throws NumberFormatException :
+{
+  Token t ;
+  double d;
+  }
+  {
+  t=<INTEGER_CONSTANT>
+  |
+  t = <LOGIC_CONSTANT>
+  |
+  <OPEN_PAR> Expression() <CLOSE_PAR>
+  |
+  <MINUS> Primary()
+}
+
+void Term() throws NumberFormatException :
+{
+  }
+  {
+  Primary()
+  (
+  <TIMES>
+  Primary()
+  |
+  <DIVIDE>
+  Primary()
+  )*
+}

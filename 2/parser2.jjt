@@ -1,0 +1,255 @@
+options
+{
+  LOOKAHEAD=1;
+  MULTI=true;
+  VISITOR=true;
+  NODE_DEFAULT_VOID=true;
+}
+PARSER_BEGIN(JavaParser)
+import java.io.*;
+
+public class JavaParser {
+      
+    public static void main(String[] args) throws Exception {
+      //StringReader in=new StringReader();
+      if (args.length < 1){
+        System.err.println("Not enough argument");
+        System.exit(1);
+      }
+      JavaParser javaParser=new JavaParser(new FileInputStream(new File(args[0])));
+      try {
+        ASTStart n = javaParser.Start();
+        JavaParserVisitor v = new JavaParserDumpVisitor();
+        n.jjtAccept(v, null);
+        System.out.println("Thank you.");
+      } 
+      catch (Exception e) {
+        System.out.println("Oops.");
+        System.out.println(e.getMessage());
+        e.printStackTrace();
+      }
+    }
+}
+
+PARSER_END(JavaParser)
+
+SKIP: { " " | "\t" |"\n" |"\r"}
+
+
+//RESERVED WORDS
+TOKEN : {
+ <NOT: "not">
+|  <IF: "if">
+|  <END: "end">
+|  <SUB: "sub">
+|  <LET: "let">
+|  <CALL: "call">
+|  <THEN: "then">
+|  <CASE: "case">
+|  <ELSE: "else">
+|  <INPUT: "input">
+|  <SELECT: "select">
+|  <STATIC: "static">
+| <CLASS: "class">
+| <PUBLIC: "public">
+| <VOID: "void">
+| <MAIN: "main">
+| <EXTENDS: "extends">
+| <PRINT: "System.out.println">
+| <WHILE: "while">
+| <NEW : "new">
+| <THIS: "this">
+| <RETURN: "return">
+}
+
+//TYPE
+TOKEN: {
+  <TYPE : ("int" | "boolean")(<OPEN_BRACKET> <CLOSE_BRACKET>)?>
+}
+
+TOKEN : {
+ <STRING: "String">
+}
+
+//IDENTIFIER TOKEN
+TOKEN : {
+ <IDENTIFIER: <LETTER>(<LETTER>|<DIGIT>)*(["$"])?>
+|  <#LETTER: (["a"-"z","A"-"Z"])>
+}
+
+
+TOKEN: { <PLUS: "+">  }
+TOKEN: { <MINUS: "-">  }
+TOKEN: { <TIMES: "*">  }
+TOKEN: { <DIVIDE: "/">  }
+TOKEN: { <EQUALS: "=">  }
+TOKEN : { < OPEN_PAR : "(" > }
+TOKEN : { < CLOSE_PAR : ")" > }
+TOKEN : { < OPEN_BRACE : "{" > }
+TOKEN : { < CLOSE_BRACE : "}" > }
+TOKEN : { < OPEN_BRACKET : "[" > }
+TOKEN : { < CLOSE_BRACKET : "]" > }
+TOKEN : { < SEMI_COLON : ";" > }
+TOKEN : { < COMMA : "," > }
+TOKEN : {<OPERATOR : <PLUS> | <MINUS> | <TIMES> | <DIVIDE>>}
+
+//STATIC TOKENS
+TOKEN : {
+ <#DIGIT: ["0"-"9"]> 
+ | <INTEGER_CONSTANT: (<DIGIT>)+>
+ |  < FLOATING_POINT_LITERAL:
+        (<DIGIT>)+ "." (<DIGIT>)*(["f","F","d","D"])?
+      | "." (<DIGIT>)+ (["f","F","d","D"])?
+      | (<DIGIT>)+  (["f","F","d","D"])?
+      | (<DIGIT>)+ ["f","F","d","D"]
+  >
+|  < #EXPONENT: ["e","E"] (["+","-"])? (<DIGIT>)+ >
+|  <LOGIC_CONSTANT: "true" | "false" | "-1">
+|  <STRING_CONSTANT: "\"" ( ~["\"","\\","\n","\r"] | "\\" ( ["n","t","b","r","f","\\","\'","\""] | ( ["\n","\r"] | "\r\n")))* "\"">
+}
+
+ASTStart Start() #Start:
+{}
+{
+Program()
+{return jjtThis;}
+}
+
+void Program():
+{}
+{
+  MainClass() 
+  (ClassDecl())*
+  <EOF>
+}
+
+void MainClass() #main:
+{
+  Token t;  
+}
+{
+  <CLASS>  t = <IDENTIFIER> 
+  {jjtThis.setName(t.image);}
+  <OPEN_BRACE>
+
+  <PUBLIC> <STATIC> <VOID> <MAIN> <OPEN_PAR> 
+  [<STRING> <OPEN_BRACKET> <CLOSE_BRACKET> <IDENTIFIER> {jjtThis.setHasArgs(true);}] 
+  <CLOSE_PAR> 
+  <OPEN_BRACE>
+    Statement()
+  <CLOSE_BRACE>
+  <CLOSE_BRACE>
+}
+
+void ClassDecl() #Class:
+{
+  Token t;
+}
+{
+  <CLASS> t = <IDENTIFIER>{jjtThis.setName(t.image); }
+  [<EXTENDS> <IDENTIFIER>]
+  <OPEN_BRACE>
+    (VarDecl())*
+    (MethodDecl())*
+  <CLOSE_BRACE>
+}
+
+void VarDecl() #type:
+{
+  Token t;
+}
+{
+  t = <TYPE> {jjtThis.setType(t.image);} t = <IDENTIFIER> {jjtThis.setName(t.image);} <SEMI_COLON>
+}
+
+
+void FormalList() #args:
+{
+  Token t;
+}
+{
+  t = <TYPE> {jjtThis.addType(t.image);} t = <IDENTIFIER>{{jjtThis.addName(t.image);}} 
+  (<COMMA> t = <TYPE> {jjtThis.addType(t.image);} t = <IDENTIFIER>{jjtThis.addName(t.image);})*
+}
+
+void MethodDecl() #method:
+{
+  Token t;
+}
+{
+  <PUBLIC> <TYPE> t = <IDENTIFIER>{jjtThis.setMethodName(t.image);}
+  <OPEN_PAR> (FormalList())* <CLOSE_PAR>
+  <OPEN_BRACE> (Statement())* <RETURN> t = <IDENTIFIER> <SEMI_COLON> {jjtThis.setReturnName(t.image);} <CLOSE_BRACE>
+}
+
+void Statement():
+{
+}
+{
+  <IDENTIFIER> (<OPEN_BRACKET> Expression() <CLOSE_BRACKET>)? <EQUALS> Expression() <SEMI_COLON>
+  | <PRINT> <OPEN_PAR> Expression() <CLOSE_PAR> <SEMI_COLON> 
+  | IfStatement()
+  | WhileStatement()
+  | StatementBr()
+  | VarDecl()
+}
+
+void StatementBr():
+{}
+{
+  <OPEN_BRACE> (Statement())* <CLOSE_BRACE>
+}
+
+void IfStatement() #ifstmt:
+{}
+{
+  <IF> <OPEN_PAR> Expression() <CLOSE_PAR> [<ELSE> Statement()]
+}
+
+void WhileStatement() #whilestmt:
+{}
+{
+  <WHILE> <OPEN_PAR> Expression() <CLOSE_PAR> Statement()
+}
+
+void Expression() throws NumberFormatException #exp:
+{
+  Token t;
+}
+{
+  <OPEN_PAR> Expression() <CLOSE_PAR>
+  | "!" Expression()
+  | t = <LOGIC_CONSTANT> {jjtThis.addName(t.image);}
+  | t = <IDENTIFIER> {jjtThis.addName(t.image);}
+  | t = <THIS> {jjtThis.addName(t.image);}
+  | <NEW> (<TYPE> <OPEN_BRACKET> Expression() <CLOSE_BRACKET> | <IDENTIFIER> <OPEN_PAR> <CLOSE_PAR>)
+}
+
+void Primary() throws NumberFormatException :
+{
+  Token t ;
+  double d;
+  }
+  {
+  t=<INTEGER_CONSTANT>
+  |
+  t = <LOGIC_CONSTANT>
+  |
+  <OPEN_PAR> Expression() <CLOSE_PAR>
+  |
+  <MINUS> Primary()
+}
+
+void Term() throws NumberFormatException :
+{
+  }
+  {
+  Primary()
+  (
+  <TIMES>
+  Primary()
+  |
+  <DIVIDE>
+  Primary()
+  )*
+}
